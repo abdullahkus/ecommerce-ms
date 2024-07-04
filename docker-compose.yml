@@ -1,0 +1,116 @@
+services:
+  postgres:
+    container_name: ms_pg_sql
+    image: postgres
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_USER: abdullah
+      POSTGRES_PASSWORD: abdullah
+      PGDATA: /var/lib/postgresql/data
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    networks:
+      - ecommerce-net
+
+  pgadmin:
+    container_name: ms_pgadmin
+    image: dpage/pgadmin4
+    depends_on:
+      - postgres
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-pgadmin@pgadmin.org}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    volumes:
+      - pgadmin:/var/lib/pgadmin
+    ports:
+      - 5050:80
+    networks:
+      - ecommerce-net
+
+  mongodb:
+    container_name: ms_mongo_db
+    image: mongo
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=abdullah
+      - MONGO_INITDB_ROOT_PASSWORD=abdullah
+    ports:
+      - 27017:27017
+    volumes:
+      - mongo:/data
+
+  mongo-express:
+    container_name: ms_mongo_express
+    image: mongo-express
+    depends_on:
+      - mongodb
+    environment:
+      ME_CONFIG_MONGODB_URL: mongodb://abdullah:abdullah@ms_mongo_db:27017
+      ME_CONFIG_BASICAUTH_USERNAME: abdullah
+      ME_CONFIG_BASICAUTH_PASSWORD: abdullah
+      ME_CONFIG_OPTIONS_EDITORTHEME: ambiance
+    ports:
+      - 8081:8081
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_SERVER_ID: 1
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - 22181:2181
+    networks:
+      - ecommerce-net
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: ms_kafka
+    environment:
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+    ports:
+      - 9092:9092
+    depends_on:
+      - zookeeper
+    networks:
+      - ecommerce-net
+
+  keycloak:
+    container_name: keycloak-ms
+    image: quay.io/keycloak/keycloak:latest
+    ports:
+      - 9098:8080
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    networks:
+      - ecommerce-net
+    command:
+      - "start-dev"
+
+  mail-dev:
+      container_name: ms_mail_dev
+      image: maildev/maildev
+      ports:
+        - 1080:1080
+        - 1025:1025
+
+networks:
+  ecommerce-net:
+    driver: bridge
+    name: ecommerce-net
+
+volumes:
+  postgres:
+    name: postgres
+  pgadmin:
+    name: pgadmin
+  mongo:
+    name: mongo
